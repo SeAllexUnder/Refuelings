@@ -38,3 +38,5 @@ print(responce.json())
 if responce.json()['vidgsm'] != 'tovar':
     # Сохраняем транзакцию
     pass
+
+print('hi')
