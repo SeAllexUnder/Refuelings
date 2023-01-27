@@ -833,8 +833,8 @@ def main(dateFrom, dateTo):
         print('------------------------------')
         print(f'Организация: {organisation}')
         for cabinet in parameters[organisation]:
-            if cabinet['name'] != 'Газпром':
-                continue
+            # if cabinet['name'] != 'Газпром':
+            #     continue
             date_From = dateFrom
             date_To = dateTo
             print(f'Личный кабинет {parameters[organisation].index(cabinet) + 1}: '
