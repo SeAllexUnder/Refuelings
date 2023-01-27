@@ -940,12 +940,12 @@ def main(dateFrom, dateTo):
 current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")
 print(f'{current_time} старт программы')
 while True:
-    current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%M:%S")
+    current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%M")
     dateFrom = datetime.utcfromtimestamp(int(time.time()) + 10800 - 86400).strftime("%Y-%m-%d")
     dateTo = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
     kostyl = False
     # or str(current_time) == '29:59'
-    if str(current_time) == '59:59' or kostyl:
+    if str(current_time) == '59' or kostyl:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if kostyl:
@@ -955,4 +955,4 @@ while True:
         if kostyl:
             break
     else:
-        time.sleep(5)
+        time.sleep(30)
