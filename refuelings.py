@@ -602,7 +602,7 @@ class WialonClient:
                       'volume': info['amounts'][pos],
                       'cost': info['prices'][pos],
                       'location': info['posAddress'][pos],
-                      'deviation': 30,
+                      'deviation': 180,
                       'x': info['longitude'][pos],
                       'y': info['latitude'][pos],
                       'description': f'{datetime.utcfromtimestamp(info["dates"][pos] + 10800).strftime("%d.%m.%Y %H:%M")} - '
