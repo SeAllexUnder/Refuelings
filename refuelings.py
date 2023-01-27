@@ -6,7 +6,6 @@ from base64 import b64encode
 import requests.exceptions
 import pandas
 import os
-import hashlib
 import get_logo
 
 
@@ -223,27 +222,6 @@ class FuelCards_Client_PPR(FuelCards_Client):
             print('Ошибка подключения к л.к. топливных карт!')
         return self.transactions
 
-    def get_back(self, transactions, for_wialon_info):
-        info = for_wialon_info
-        for transaction in transactions:
-            # обработка возвратов
-            if transaction['cardNum'] != 0:
-                if transaction['amount'] < 0:
-                    back_date = clear_date(transaction["date"])
-                    back_amount = transaction["amount"] * -1
-                    print(f'Возврат топлива {datetime.utcfromtimestamp(transaction["date"]).strftime("%d.%m.%Y %H:%M")} '
-                          f'объем {back_amount}')
-                    for date in info['dates']:
-                        if back_date == date:
-                            pos = info['dates'].index(date)
-                            start_value = float(info['amounts'][pos])
-                            if back_amount == start_value:
-                                for key in info.keys():
-                                    info[key].pop(pos)
-                            else:
-                                info['amounts'][pos] = '%.2f' % (start_value - back_amount)
-        return info
-
     def get_region_timezone(self, unix_date, adress):
         return unix_date
 
@@ -340,30 +318,6 @@ class FuelCards_Client_Rosneft(FuelCards_Client):
             # self.get_transactions(dateFrom, dateTo)
         # print(self.transactions)
         return self.transactions
-
-    def get_back(self, transactions, for_wialon_info):
-        back_info = for_wialon_info
-        for transaction in transactions:
-            if transaction['Type'] == 24:
-                print(f'Возврат топлива {datetime.utcfromtimestamp(transaction["date"]).strftime("%d.%m.%Y %H:%M")}'
-                      f' объем {transaction["amount"]} л')
-                back_value = transaction['amount']
-                back_summ = transaction['sum']
-                back_index = transactions.index(transaction)
-                ref = transaction['Ref']
-                for transaction2 in transactions:
-                    if transaction2['Code'] == ref:
-                        sub_index = transactions.index(transaction2)
-                        value = float(back_info['amounts'][sub_index])
-                        summ = float(back_info['sums'][sub_index])
-                        # print(back_info['drivers'][sub_index])
-                        back_info['amounts'][sub_index] = '%.2f' % (value - back_value)
-                        back_info['sums'][sub_index] = '%.2f' % (summ - back_summ)
-                transactions.pop(back_index)
-                for i in back_info.keys():
-                    back_info[i].pop(back_index)
-        # print(back_info)
-        return back_info
 
 
 class FuelCards_Client_Tatneft(FuelCards_Client):
@@ -490,27 +444,6 @@ class FuelCards_Client_Tatneft(FuelCards_Client):
     def get_transactions(self, dateFrom, dateTo):
         return self.transactions
 
-    def get_back(self, transactions, for_wialon_info):
-        back_info = for_wialon_info
-        for transaction in transactions:
-            if transaction['amount'] < 0:
-                print(f'Возврат топлива {datetime.utcfromtimestamp(transaction["date"]).strftime("%d.%m.%Y %H:%M")}'
-                      f' объем {transaction["amount"]*(-1)} л')
-                back_value = transaction['amount']
-                back_summ = transaction['sum']*(-1)
-                back_card = transaction['cardNum']
-                back_brand = transaction['posBrand']
-                back_adress = transaction['posAddress']
-                # print()
-                for i in range(len(back_info['cardNum'])):
-                    if back_info['cardNum'][i] == back_card and back_info['posBrands'][i] == f'{back_brand} ' and \
-                            back_info['posAddress'][i] == back_adress:
-                        value = float(back_info['amounts'][i])
-                        summ = float(back_info['sums'][i])
-                        back_info['amounts'][i] = '%.2f' % (value + back_value)
-                        back_info['sums'][i] = '%.2f' % (summ - back_summ)
-        return back_info
-
     def get_region_timezone(self, unix_date, adress):
         correct_unix_date = 0
         for timezone in self.timezones.keys():
@@ -534,8 +467,7 @@ class FuelCards_Client_Gazprom(FuelCards_Client):
     def get_responce(self, URL, headers, params):
         while True:
             try:
-                responce = r.post(url=URL, headers=headers, params=params)
-                print(responce)
+                responce = r.post(url=URL, headers=headers, data=json.dumps(params))
                 if responce.status_code == 200:
                     return responce.json()
                 else:
@@ -547,18 +479,46 @@ class FuelCards_Client_Gazprom(FuelCards_Client):
 
     def get_cards(self):
         URL = f'{self.baseURL}/api/api_v2.php'
+        params = {'action': 'cards',
+                  'key': '{key}',
+                  'cont': self.contract_code}
         headers = {'apikey': self.token,
                    'Content-Type': 'application/json'}
-        params = {'cont': self.contract_code,
-                  'action': 'cards'}
-        print(self.token)
-        print(URL)
-        responce = r.post(url=URL, headers=headers, params=params)
-        print(responce)
-        # self.get_responce(URL=URL, headers=headers, params=params)
+        responce = self.get_responce(URL=URL, headers=headers, params=params)
+        for card in responce['result']:
+            if card['stat'] == 'Активна':
+                self.cards[card['lognb']] = card['user'].split(' ')[0]
+        return self.cards
 
-    def get_transactions(self):
-        pass
+    def get_transactions(self, date_From, date_To):
+        URL = f'{self.baseURL}/api/api_v2.php'
+        params = {'action': 'opers',
+                  'key': '{key}',
+                  'cont': self.contract_code,
+                  'dtemin': date_From,
+                  'dtemax': date_To}
+        headers = {'apikey': self.token,
+                   'Content-Type': 'application/json'}
+        responce = self.get_responce(URL=URL, headers=headers, params=params)
+        for transaction in responce['result']:
+            if transaction['vidgsm'] != 'tovar':
+                date_time = transaction['dte'].split(' ')[0] + 'T' + transaction['dte'].split(' ')[1]
+                self.transactions.append({'cardNum': transaction['lognb'],
+                                          'date': date_time,
+                                          'amount': transaction['kolich'],
+                                          'price': transaction['zenaclients'],
+                                          'sum': transaction['skidkaclients'],
+                                          'posBrand': transaction['numazs'],
+                                          'posTown': '',
+                                          'latitude': 0,
+                                          'longitude': 0,
+                                          'posAddress': transaction['torgovtochka'],
+                                          'serviceName': transaction['tovar'],
+                                          })
+        return self.transactions
+
+    def get_region_timezone(self, unix_date, adress):
+        return unix_date
 
 
 class WialonClient:
@@ -873,8 +833,8 @@ def main(dateFrom, dateTo):
         print('------------------------------')
         print(f'Организация: {organisation}')
         for cabinet in parameters[organisation]:
-            # if cabinet['name'] != 'Газпром':
-            #     continue
+            if cabinet['name'] != 'Газпром':
+                continue
             date_From = dateFrom
             date_To = dateTo
             print(f'Личный кабинет {parameters[organisation].index(cabinet) + 1}: '
@@ -945,7 +905,6 @@ def main(dateFrom, dateTo):
                     transaction_date = fuel_cards_client.get_region_timezone(
                         unix_date=clear_date(transaction['date']), adress=transaction['posAddress'])
                     transaction['date'] = transaction_date
-                    # занесение всех положительных транзакций в список
                     if transaction['cardNum'] != 0:
                         all_info['cardNum'].append(transaction['cardNum'])
                         all_info['drivers'].append(cards[transaction['cardNum']])
@@ -958,7 +917,6 @@ def main(dateFrom, dateTo):
                         all_info['longitude'].append(transaction['longitude'])
                         all_info['posAddress'].append(transaction['posAddress'])
                         all_info['serviceName'].append(transaction['serviceName'])
-                # for_wialon_info = fuel_cards_client.get_back(transactions, all_info)
                 # print(all_info)
                 print(f'Транзакций по картам: {len(all_info["cardNum"])}')
                 if wialon.login():
@@ -991,8 +949,10 @@ while True:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if kostyl:
-            dateFrom = '2023-01-24'
-            dateTo = '2023-01-25'
+            dateFrom = '2022-12-01'
+            dateTo = '2023-01-27'
         main(dateFrom, dateTo)
         if kostyl:
             break
+    else:
+        time.sleep(60)

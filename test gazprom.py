@@ -26,7 +26,7 @@ cards = {'1007800000101618593': '', '1007800000101618594': '', '1007800000101618
 
 # Транзакции за период
 date_From = '2023-01-24'
-date_To = '2023-01-25'
+date_To = '2023-01-27'
 action = 'opers'
 params = {'action': action,
           'key': '{key}',
@@ -35,8 +35,6 @@ params = {'action': action,
           'dtemax': date_To}
 responce = r.post(url=URL, headers=headers, data=json.dumps(params))
 print(responce.json())
-if responce.json()['vidgsm'] != 'tovar':
+if responce.json()['result']['vidgsm'] != 'tovar':
     # Сохраняем транзакцию
     pass
-
-print('hi')

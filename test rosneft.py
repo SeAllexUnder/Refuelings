@@ -341,7 +341,7 @@ def clear_date(date):
 # print(clear_date('2022-12-06T07:03:22'))
 # print(clear_date('1670338920'))
 # get_cards_on_wialon()
-get_vehicles_and_delete_transactions()
+# get_vehicles_and_delete_transactions()
 
 # wialon = WialonClient(0, 0)
 # wialon.login()
