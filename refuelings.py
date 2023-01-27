@@ -955,4 +955,4 @@ while True:
         if kostyl:
             break
     else:
-        time.sleep(60)
+        time.sleep(5)
