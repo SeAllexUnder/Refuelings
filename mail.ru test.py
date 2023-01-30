@@ -1,7 +1,5 @@
 import imaplib
 import email
-import shlex
-import imaputf7
 from email.header import decode_header
 
 
