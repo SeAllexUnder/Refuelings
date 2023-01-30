@@ -922,7 +922,7 @@ def main(dateFrom, dateTo):
                 if wialon.login():
                     # print(all_info)
                     wialon.reg_card(cards, cabinet['name'])
-                    wialon.event_registration(sort_dict(all_info, 'dates'), True)
+                    wialon.event_registration(all_info, True)
                 else:
                     print('Ошибка входа в Виалон!')
                 wialon.logout()
@@ -949,8 +949,8 @@ while True:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if kostyl:
-            dateFrom = '2022-12-01'
-            dateTo = '2023-01-27'
+            dateFrom = '2023-01-24'
+            dateTo = '2023-01-30'
         main(dateFrom, dateTo)
         if kostyl:
             break
