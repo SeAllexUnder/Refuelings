@@ -1,6 +1,7 @@
 import imaplib
 import email
 import shlex
+import imaputf7
 from email.header import decode_header
 
 
@@ -16,7 +17,7 @@ class MailClient:
 
     def get_all_folders(self):
         for folder in self.mail.list()[1]:
-            print(shlex.split(imaputf7decode(folder.decode()))[-1])
+            print(shlex.split(imaputf7.imaputf7decode(folder.decode()))[-1])
         # print(self.mail.list())
 
     def search_unseen_mails_in_folder(self, folder):
