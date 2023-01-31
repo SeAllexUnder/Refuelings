@@ -8,7 +8,10 @@ import pandas
 import openpyxl
 import os
 import imaplib
+import smtplib
 import email
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.header import decode_header
 import get_logo
 
@@ -159,6 +162,7 @@ class FuelCards_Client:
                  9: ["Камчатский край",
                      "Чукотский автономный округ"]
                  }
+    mail_ru = ''
 
     def __init__(self, token='', baseURL=''):
         self.token = token
@@ -176,7 +180,7 @@ class FuelCards_Client:
             correct_unix_date = unix_date
         return correct_unix_date
 
-    def send_raport(self):
+    def send_report(self, text):
         pass
 
 
@@ -528,21 +532,23 @@ class FuelCards_Client_Gazprom(FuelCards_Client):
 
 
 class FuelCards_Client_Novatec(FuelCards_Client):
-    send_mail = ''
+    mail = ''
+    mail_from = ''
+    unseen_mails = []
     date_From = ''
     date_To = ''
     login = ''
     password = ''
-    mail = ''
-    unseen_mails = []
+    folder = ''
 
-    def __init__(self, mail):
+    def __init__(self, mail_from, folder):
         with open('Параметры внутряки.json', encoding='utf-8') as p:
             parameters = json.load(p)
             self.login = parameters['mail.ru']['login']
             self.password = parameters['mail.ru']['password']
             self.mail = parameters['mail.ru']['mail']
-        self.send_mail = mail
+        self.folder = folder
+        self.mail_from = mail_from
         self.set_cards()
         self.set_transactions()
 
@@ -558,14 +564,14 @@ class FuelCards_Client_Novatec(FuelCards_Client):
 
     def set_transactions(self):
         min_max_dates = []
-        mail_ru = MailClient(login=self.login, password=self.password, mail=self.mail)
-        self.unseen_mails = mail_ru.search_unseen_mails_in_folder('ATL_Novatec')
+        self.mail_ru = MailClient(login=self.login, password=self.password, mail=self.mail)
+        self.unseen_mails = self.mail_ru.search_unseen_mails_in_folder(self.folder)
         if len(self.unseen_mails) == 0:
             print('Новых писем с отчетами не найдено!')
         else:
             print(f'Найдено новых писем: {len(self.unseen_mails)}')
         for mail in self.unseen_mails:
-            files = mail_ru.download_mail_attach(mail, '.xlsx')
+            files = self.mail_ru.download_mail_attach(mail, '.xlsx')
             for file in files:
                 wb = openpyxl.load_workbook(file)
                 sheet = wb.active
@@ -603,7 +609,7 @@ class FuelCards_Client_Novatec(FuelCards_Client):
             self.date_To = max(min_max_dates)
         except ValueError:
             pass
-        mail_ru.logout()
+        self.mail_ru.logout()
 
     def get_cards(self):
         return self.cards
@@ -614,8 +620,10 @@ class FuelCards_Client_Novatec(FuelCards_Client):
     def get_region_timezone(self, unix_date, adress):
         return unix_date
 
-    def send_raport(self):
-        print(f'Отчет отправлен на почту: {self.send_mail}')
+    def send_report(self, text):
+        subject = 'Обработка данных завершена'
+        self.mail_ru.send_message(text, subject, self.mail_from)
+        print(f'Отчет отправлен на почту: {self.mail_from}')
 
 
 class WialonClient:
@@ -889,9 +897,13 @@ class MailClient:
 
     mail = ''
     unseen_mails = ''
+    login = ''
+    password = ''
 
     def __init__(self, login, password, mail):
         self.mail = imaplib.IMAP4_SSL(f'imap.{mail}')
+        self.login = login
+        self.password = password
         self.mail.login(login, password)
 
     def get_all_folders(self):
@@ -906,19 +918,44 @@ class MailClient:
             self.unseen_mails = unseen_mails
         return self.unseen_mails
 
-    def download_mail_attach(self, message_num, mask=''):
+    def download_mail_attach(self, message_num, mask='', mail_from = ''):
         files = []
         res, msg = self.mail.uid('fetch', message_num, '(RFC822)')
         message = email.message_from_bytes(msg[0][1])
-        for part in message.walk():
-            if part.get_content_disposition() == 'attachment':
-                filename = part.get_filename()
-                filename = str(email.header.make_header(email.header.decode_header(filename)))
-                if mask in filename:
-                    files.append(filename)
-                    with open(filename, 'wb') as new_file:
-                        new_file.write(part.get_payload(decode=True))
+        field_from = decode_header(message['From'])[1][0].decode()
+        if mail_from in field_from or 'support3@a-lain.ru' in field_from:
+            for part in message.walk():
+                if part.get_content_disposition() == 'attachment':
+                    filename = part.get_filename()
+                    filename = str(email.header.make_header(email.header.decode_header(filename)))
+                    if mask in filename:
+                        files.append(filename)
+                        with open(filename, 'wb') as new_file:
+                            new_file.write(part.get_payload(decode=True))
+                        text = 'Файл' + f' <b>{filename}</b> ' + \
+                               'принят в обработку. О заврешении обработки будет сообщено дополнительно'
+                        self.send_message(text_for_send=text, mail_to=field_from, subject=f'Файл {filename} принят.')
+
         return files
+
+    def send_message(self, text_for_send, subject, mail_to):
+        msg = MIMEMultipart()
+        msg['From'] = self.login
+        msg['To'] = mail_to
+        msg['Subject'] = subject
+
+        signature = 'Сообщение сформировано и отправлено автоматически и ответа не требует. Если у Вас возникли ' \
+                    'вопросы по содержанию данного письма, пожалуйста, напишите обращение на support3@a-lain.ru'
+        body = f'{text_for_send}'+ '<br>'*2 + ('<b>' + signature + '</b>')
+        print(body)
+        msg.attach(MIMEText(body, 'html'))
+
+        server = smtplib.SMTP_SSL('smtp.mail.ru', 465)
+        # server.starttls()
+        server.login(self.login, self.password)
+        text = msg.as_string()
+        server.sendmail(self.login, mail_to, text)
+        server.quit()
 
     def logout(self):
         self.mail.logout()
@@ -1014,7 +1051,7 @@ def main(dateFrom, dateTo):
                                                              contract_code=cabinet['contract code'],
                                                              baseURL=cabinet['baseURL'])
             elif cabinet["name"] == "Новатэк":
-                fuel_cards_client = FuelCards_Client_Novatec(mail=cabinet['mail'])
+                fuel_cards_client = FuelCards_Client_Novatec(mail_from=cabinet['mail'], folder=cabinet['folder'])
                 if fuel_cards_client.date_From != '' and fuel_cards_client.date_To != '':
                     date_From = fuel_cards_client.date_From
                     date_To = fuel_cards_client.date_To
@@ -1070,12 +1107,15 @@ def main(dateFrom, dateTo):
                     wialon.event_registration(all_info, True)
                 else:
                     print('Ошибка входа в Виалон!')
-                fuel_cards_client.send_raport()
+                text_for_report = f'Обработка данных завершена. Интегрировано транзакций: ' \
+                                      f'{len(all_info["cardNum"])} за период с {date_From} по {date_To}'
+                fuel_cards_client.send_report(text_for_report)
                 wialon.logout()
                 all_info.clear()
                 # for_wialon_info.clear()
             cards.clear()
             transactions.clear()
+            del fuel_cards_client.mail_ru
             del fuel_cards_client
             del wialon
     current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")
@@ -1102,5 +1142,3 @@ while True:
             break
     else:
         time.sleep(30)
-
-
