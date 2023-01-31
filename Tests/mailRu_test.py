@@ -25,6 +25,7 @@ class MailClient:
         return self.unseen_mails
 
     def download_mail_attach(self, message_num, mask=''):
+        files = []
         res, msg = self.mail.uid('fetch', message_num, '(RFC822)')
         message = email.message_from_bytes(msg[0][1])
         for part in message.walk():
@@ -32,9 +33,10 @@ class MailClient:
                 filename = part.get_filename()
                 filename = str(email.header.make_header(email.header.decode_header(filename)))
                 if mask in filename:
+                    files.append(filename)
                     with open(filename, 'wb') as new_file:
                         new_file.write(part.get_payload(decode=True))
-                    print(f'{filename} сохранен')
+        return files
 
     def logout(self):
         self.mail.logout()

@@ -5,6 +5,7 @@ from datetime import datetime
 from base64 import b64encode
 import requests.exceptions
 import pandas
+import openpyxl
 import os
 import imaplib
 import email
@@ -174,6 +175,9 @@ class FuelCards_Client:
             print(f'Адрес {adress} не найден!')
             correct_unix_date = unix_date
         return correct_unix_date
+
+    def send_raport(self):
+        pass
 
 
 class FuelCards_Client_PPR(FuelCards_Client):
@@ -523,9 +527,100 @@ class FuelCards_Client_Gazprom(FuelCards_Client):
         return unix_date
 
 
+class FuelCards_Client_Novatec(FuelCards_Client):
+    send_mail = ''
+    date_From = ''
+    date_To = ''
+    login = ''
+    password = ''
+    mail = ''
+    unseen_mails = []
+
+    def __init__(self, mail):
+        with open('Параметры внутряки.json', encoding='utf-8') as p:
+            parameters = json.load(p)
+            self.login = parameters['mail.ru']['login']
+            self.password = parameters['mail.ru']['password']
+            self.mail = parameters['mail.ru']['mail']
+        self.send_mail = mail
+        self.set_cards()
+        self.set_transactions()
+
+    def set_cards(self):
+        excel_data_df = pandas.read_excel('Cards\ATL.xlsx')
+        all_cards = excel_data_df['НОВАТЭК'].tolist()
+        for card in all_cards:
+            if pandas.isnull(card):
+                continue
+            else:
+                index = all_cards.index(card)
+                self.cards[str(card)] = excel_data_df['VIN'].tolist()[index]
+
+    def set_transactions(self):
+        min_max_dates = []
+        mail_ru = MailClient(login=self.login, password=self.password, mail=self.mail)
+        self.unseen_mails = mail_ru.search_unseen_mails_in_folder('ATL_Novatec')
+        if len(self.unseen_mails) == 0:
+            print('Новых писем с отчетами не найдено!')
+        else:
+            print(f'Найдено новых писем: {len(self.unseen_mails)}')
+        for mail in self.unseen_mails:
+            files = mail_ru.download_mail_attach(mail, '.xlsx')
+            for file in files:
+                wb = openpyxl.load_workbook(file)
+                sheet = wb.active
+                cardNums = [row[1].value for row in sheet.rows][1:]
+                dates = [row[3].value for row in sheet.rows][1:]
+                times = [row[4].value for row in sheet.rows][1:]
+                posBrands = [row[5].value for row in sheet.rows][1:]
+                serviceNames = [row[6].value for row in sheet.rows][1:]
+                amounts = [row[7].value for row in sheet.rows][1:]
+                prices = [row[8].value for row in sheet.rows][1:]
+                sums = [row[9].value for row in sheet.rows][1:]
+                cardNum = 0
+                for i in range(len(cardNums)):
+                    if dates[i] is None or amounts[i] is None:
+                        continue
+                    if cardNums[i] is not None:
+                        cardNum = cardNums[i][3:-1]
+                    date_time = '-'.join(reversed(str(dates[i]).split('-'))) + 'T' + times[i]
+                    min_max_dates.append('-'.join(reversed(str(dates[i]).split('-'))))
+                    self.transactions.append({'cardNum': cardNum,
+                                         'date': date_time,
+                                         'amount': amounts[i],
+                                         'price': prices[i],
+                                         'sum': sums[i],
+                                         'posBrand': posBrands[i],
+                                         'posTown': '',
+                                         'latitude': 0,
+                                         'longitude': 0,
+                                         'posAddress': '',
+                                         'serviceName': serviceNames[i]
+                                         })
+                os.remove(file)
+        try:
+            self.date_From = min(min_max_dates)
+            self.date_To = max(min_max_dates)
+        except ValueError:
+            pass
+        mail_ru.logout()
+
+    def get_cards(self):
+        return self.cards
+
+    def get_transactions(self, dateFrom, dateTo):
+        return self.transactions
+
+    def get_region_timezone(self, unix_date, adress):
+        return unix_date
+
+    def send_raport(self):
+        print(f'Отчет отправлен на почту: {self.send_mail}')
+
+
 class WialonClient:
-    URL = 'https://hst-api.wialon.com'
-    TOKEN = '2591a1ab8e3fe83813c057daf0d62d2b78BB480C5EFF6B9B9986F83900CC20E49E5E2772'
+    URL = ''
+    TOKEN = ''
     EID = 0
     USER_ID = ''
     dateFrom = ''
@@ -534,6 +629,10 @@ class WialonClient:
     def __init__(self, dateFrom, dateTo):
         self.dateFrom = dateFrom
         self.dateTo = dateTo
+        with open('Параметры внутряки.json', encoding='utf-8') as p:
+            parameters = json.load(p)
+            self.TOKEN = parameters['Wialon']['token']
+            self.URL = parameters['Wialon']['baseURL']
 
     def get_responce(self, URL):
         while True:
@@ -808,6 +907,7 @@ class MailClient:
         return self.unseen_mails
 
     def download_mail_attach(self, message_num, mask=''):
+        files = []
         res, msg = self.mail.uid('fetch', message_num, '(RFC822)')
         message = email.message_from_bytes(msg[0][1])
         for part in message.walk():
@@ -815,9 +915,10 @@ class MailClient:
                 filename = part.get_filename()
                 filename = str(email.header.make_header(email.header.decode_header(filename)))
                 if mask in filename:
+                    files.append(filename)
                     with open(filename, 'wb') as new_file:
                         new_file.write(part.get_payload(decode=True))
-                    print(f'{filename} сохранен')
+        return files
 
     def logout(self):
         self.mail.logout()
@@ -872,7 +973,7 @@ def main(dateFrom, dateTo):
         print('------------------------------')
         print(f'Организация: {organisation}')
         for cabinet in parameters[organisation]:
-            # if cabinet['name'] != 'Газпром':
+            # if cabinet['name'] != 'Новатэк':
             #     continue
             date_From = dateFrom
             date_To = dateTo
@@ -912,6 +1013,11 @@ def main(dateFrom, dateTo):
                 fuel_cards_client = FuelCards_Client_Gazprom(token=cabinet['token'],
                                                              contract_code=cabinet['contract code'],
                                                              baseURL=cabinet['baseURL'])
+            elif cabinet["name"] == "Новатэк":
+                fuel_cards_client = FuelCards_Client_Novatec(mail=cabinet['mail'])
+                if fuel_cards_client.date_From != '' and fuel_cards_client.date_To != '':
+                    date_From = fuel_cards_client.date_From
+                    date_To = fuel_cards_client.date_To
             else:
                 print(f'API {cabinet["name"]} пока не реализовано')
                 continue
@@ -964,6 +1070,7 @@ def main(dateFrom, dateTo):
                     wialon.event_registration(all_info, True)
                 else:
                     print('Ошибка входа в Виалон!')
+                fuel_cards_client.send_raport()
                 wialon.logout()
                 all_info.clear()
                 # for_wialon_info.clear()
@@ -982,16 +1089,18 @@ while True:
     current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%M")
     dateFrom = datetime.utcfromtimestamp(int(time.time()) + 10800 - 86400).strftime("%Y-%m-%d")
     dateTo = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
-    kostyl = False
+    test = False
     # or str(current_time) == '29:59'
-    if str(current_time) == '59' or kostyl:
+    if str(current_time) == '59' or test:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
-        if kostyl:
+        if test:
             dateFrom = '2023-01-24'
             dateTo = '2023-01-30'
         main(dateFrom, dateTo)
-        if kostyl:
+        if test:
             break
     else:
         time.sleep(30)
+
+
