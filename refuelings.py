@@ -6,8 +6,10 @@ from base64 import b64encode
 import requests.exceptions
 import pandas
 import os
+import imaplib
+import email
+from email.header import decode_header
 import get_logo
-
 
 
 class FuelCards_Client:
@@ -782,6 +784,43 @@ class WialonClient:
         svc = 'item/update_custom_field'
         URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
         self.get_responce(URL)
+
+
+class MailClient:
+
+    mail = ''
+    unseen_mails = ''
+
+    def __init__(self, login, password, mail):
+        self.mail = imaplib.IMAP4_SSL(f'imap.{mail}')
+        self.mail.login(login, password)
+
+    def get_all_folders(self):
+        return self.mail.list()[1]
+
+    def search_unseen_mails_in_folder(self, folder):
+        self.mail.select(folder)
+        unseen_mails = self.mail.uid('search', 'UNSEEN')[1][0].decode().split(' ')
+        if len(unseen_mails) == 1 and unseen_mails[0] == '':
+            self.unseen_mails = []
+        else:
+            self.unseen_mails = unseen_mails
+        return self.unseen_mails
+
+    def download_mail_attach(self, message_num, mask=''):
+        res, msg = self.mail.uid('fetch', message_num, '(RFC822)')
+        message = email.message_from_bytes(msg[0][1])
+        for part in message.walk():
+            if part.get_content_disposition() == 'attachment':
+                filename = part.get_filename()
+                filename = str(email.header.make_header(email.header.decode_header(filename)))
+                if mask in filename:
+                    with open(filename, 'wb') as new_file:
+                        new_file.write(part.get_payload(decode=True))
+                    print(f'{filename} сохранен')
+
+    def logout(self):
+        self.mail.logout()
 
 
 def clear_date(date):
