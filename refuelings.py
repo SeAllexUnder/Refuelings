@@ -922,7 +922,10 @@ class MailClient:
         files = []
         res, msg = self.mail.uid('fetch', message_num, '(RFC822)')
         message = email.message_from_bytes(msg[0][1])
-        field_from = decode_header(message['From'])[1][0].decode()
+        try:
+            field_from = decode_header(message['From'])[1][0].decode()
+        except IndexError:
+            field_from = message['From']
         if mail_from in field_from or 'support3@a-lain.ru' in field_from:
             for part in message.walk():
                 if part.get_content_disposition() == 'attachment':
@@ -947,6 +950,7 @@ class MailClient:
         signature = 'Сообщение сформировано и отправлено автоматически и ответа не требует. Если у Вас возникли ' \
                     'вопросы по содержанию данного письма, пожалуйста, напишите обращение на support3@a-lain.ru'
         body = f'{text_for_send}'+ '<br>'*2 + ('<b>' + signature + '</b>')
+        print(mail_to)
         print(body)
         msg.attach(MIMEText(body, 'html'))
 
@@ -1010,8 +1014,8 @@ def main(dateFrom, dateTo):
         print('------------------------------')
         print(f'Организация: {organisation}')
         for cabinet in parameters[organisation]:
-            # if cabinet['name'] != 'Новатэк':
-            #     continue
+            if cabinet['name'] != 'Новатэк':
+                continue
             date_From = dateFrom
             date_To = dateTo
             print(f'Личный кабинет {parameters[organisation].index(cabinet) + 1}: '
@@ -1068,6 +1072,10 @@ def main(dateFrom, dateTo):
             except TimeoutError:
                 print(f'Личный кабинет {cabinet["baseURL"]} - ошибка TimeoutError!')
                 continue
+            if wialon.login():
+                # print(all_info)
+                wialon.reg_card(cards, cabinet['name'])
+                wialon.logout()
             if len(transactions) != 0:
                 # сбор информации
                 all_info = {'cardNum': [],
@@ -1103,7 +1111,6 @@ def main(dateFrom, dateTo):
                 print(f'Транзакций по картам: {len(all_info["cardNum"])}')
                 if wialon.login():
                     # print(all_info)
-                    wialon.reg_card(cards, cabinet['name'])
                     wialon.event_registration(all_info, True)
                 else:
                     print('Ошибка входа в Виалон!')
@@ -1115,7 +1122,7 @@ def main(dateFrom, dateTo):
                 # for_wialon_info.clear()
             cards.clear()
             transactions.clear()
-            del fuel_cards_client.mail_ru
+            # del fuel_cards_client.mail_ru
             del fuel_cards_client
             del wialon
     current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")
@@ -1129,9 +1136,9 @@ while True:
     current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%M")
     dateFrom = datetime.utcfromtimestamp(int(time.time()) + 10800 - 86400).strftime("%Y-%m-%d")
     dateTo = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
-    test = False
+    test = True
     # or str(current_time) == '29:59'
-    if str(current_time) == '59' or test:
+    if str(current_time) == '59' or str(current_time) == '29' or test:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if test:
