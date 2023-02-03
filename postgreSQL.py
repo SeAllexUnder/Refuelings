@@ -57,8 +57,8 @@ class PG_SQL:
             try:
                 sc = ''
                 if schema != '':
-                    sc = f'.{schema}'
-                cursor.execute(f"CREATE TABLE {name}{sc} ({col_s})")
+                    sc = f'{schema}.'
+                cursor.execute(f"CREATE TABLE {sc}{name} ({col_s})")
                 self.connection.commit()
             except Exception as _ex_create_table:
                 print('Создание таблицы - ', _ex_create_table)
@@ -76,18 +76,15 @@ class PG_SQL:
             buffer = f'Buf_{table}'
         else:
             buffer = table
-        sc = ''
-        if schema != '':
-            sc = f'.{schema}'
-        self.create_table(buffer, schema=sc)
+        self.create_table(buffer, schema=schema)
         count = len(_data[[key for key in _data.keys()][0]])
         rows = [tuple([str(value[i]) for value in _data.values()]) for i in range(count)]
         if len(rows) == 0:
             self._disconnect()
             return None
-        self.append_rows(buffer, rows, schema=sc)
+        self.append_rows(buffer, rows, schema=schema)
         if check:
-            self.delete_dublicates(buffer, table, schema=sc)
+            self.delete_dublicates(buffer, table, schema=schema)
 
     def read_max_val_in_column(self, table, column, schema=''):
         '''
@@ -101,8 +98,8 @@ class PG_SQL:
             try:
                 sc = ''
                 if schema != '':
-                    sc = f'.{schema}'
-                cursor.execute(f'SELECT {column} FROM {table}{sc} ORDER BY {column} DESC')
+                    sc = f'{schema}.'
+                cursor.execute(f'SELECT {column} FROM {sc}{table} ORDER BY {column} DESC')
                 row = cursor.fetchone()
             except Exception as _ex:
                 print('Чтение строк - ', _ex)
@@ -111,13 +108,15 @@ class PG_SQL:
             return row[0]
         except TypeError:
             return 0
+        except UnboundLocalError:
+            return 0
 
     def read_rows(self, table, col_s=None, schema=''):
         all_rows = []
         param = '*'
         sc = ''
         if schema != '':
-            sc = f'.{schema}'
+            sc = f'{schema}.'
         if col_s is not None:
             if len(col_s) > 1:
                 param = ', '.join(col_s)
@@ -126,7 +125,7 @@ class PG_SQL:
         self._connect()
         with self.connection.cursor() as cursor:
             try:
-                cursor.execute(f'SELECT {param} FROM {table}{sc}')
+                cursor.execute(f'SELECT {param} FROM {sc}{table}')
                 all_rows = cursor.fetchall()
             except Exception as _ex_append_rows:
                 print('Чтение строк - ', _ex_append_rows)
@@ -137,8 +136,8 @@ class PG_SQL:
         rows_records = ', '.join(["%s"] * len(rows))
         sc = ''
         if schema != '':
-            sc = f'.{schema}'
-        command = f'INSERT INTO {table}{sc} VALUES {rows_records}'
+            sc = f'{schema}.'
+        command = f'INSERT INTO {sc}{table} VALUES {rows_records}'
         self._connect()
         with self.connection.cursor() as cursor:
             try:
@@ -151,8 +150,8 @@ class PG_SQL:
     def delete_dublicates(self, buffer, table, schema=''):
         sc = ''
         if schema != '':
-            sc = f'.{schema}'
-        command = f'SELECT * FROM {buffer}{sc} UNION SELECT * FROM {table}{sc}'
+            sc = f'{schema}.'
+        command = f'SELECT * FROM {sc}{buffer} UNION SELECT * FROM {sc}{table}'
         self._connect()
         with self.connection.cursor() as cursor:
             try:
@@ -161,15 +160,15 @@ class PG_SQL:
             except Exception as _ex:
                 print('Объединение таблиц - ', _ex)
         self._disconnect()
-        self.clear_table(table, schema=sc)
-        self.append_rows(table, unique_rows, schema=sc)
-        self.delete_table(buffer, schema=sc)
+        self.clear_table(table, schema=schema)
+        self.append_rows(table, unique_rows, schema=schema)
+        self.delete_table(buffer, schema=schema)
 
     def clear_table(self, table, schema=''):
         sc = ''
         if schema != '':
-            sc = f'.{schema}'
-        command = f'TRUNCATE {table}{sc}'
+            sc = f'{schema}.'
+        command = f'TRUNCATE {sc}{table}'
         self._connect()
         with self.connection.cursor() as cursor:
             try:
@@ -182,8 +181,8 @@ class PG_SQL:
     def delete_table(self, table, schema=''):
         sc = ''
         if schema != '':
-            sc = f'.{schema}'
-        command = f'DROP TABLE {table}{sc}'
+            sc = f'{schema}.'
+        command = f'DROP TABLE {sc}{table}'
         self._connect()
         with self.connection.cursor() as cursor:
             try:

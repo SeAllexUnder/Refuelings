@@ -1017,8 +1017,8 @@ def main(dateFrom = '', dateTo = ''):
         #     continue
         print('------------------------------')
         print(f'Организация: {organisation}')
-        schema = organisation
-        sql.create_schema(organisation.replace(" ", "_"))
+        schema = organisation.replace(" ", "_")
+        sql.create_schema(name=schema)
         for cabinet in parameters[organisation]:
             # if cabinet['name'] != 'Роснефть':
             #     continue
