@@ -1017,12 +1017,14 @@ def main(dateFrom = '', dateTo = ''):
         #     continue
         print('------------------------------')
         print(f'Организация: {organisation}')
+        schema = organisation
+        sql.create_schema(organisation.replace(" ", "_"))
         for cabinet in parameters[organisation]:
             # if cabinet['name'] != 'Роснефть':
             #     continue
-            database_name = f'{organisation.replace(" ", "_")}_{cabinet["name"].replace(" ", "_")}'
-            sql.create_table(name=database_name)
-            last_row = sql.read_max_val_in_column(table=database_name, column='dates')
+            table_name = cabinet["name"].replace(" ", "_")
+            sql.create_table(name=table_name, schema=schema)
+            last_row = sql.read_max_val_in_column(table=table_name, column='dates', schema=schema)
             date_From = dateFrom
             date_To = dateTo
             if last_row != 0:
@@ -1111,7 +1113,7 @@ def main(dateFrom = '', dateTo = ''):
                         all_info['longitude'].append(transaction['longitude'])
                         all_info['posAddress'].append(transaction['posAddress'])
                         all_info['serviceName'].append(transaction['serviceName'])
-                sql.append_unique_rows(table=database_name, _data=all_info)
+                sql.append_unique_rows(table=table_name, _data=all_info, schema=schema)
                 all_info['dates'].clear()
                 all_info['dates'] = [fuel_cards_client.get_region_timezone(unix_date=clear_date(tr['date']),
                                                                            adress=tr['posAddress'])

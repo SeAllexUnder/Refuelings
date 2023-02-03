@@ -1,7 +1,7 @@
-{"А_Лайн": [{"token": "RhHHSdeVfHMUCvwObydvoPCEYsAoWxho","baseURL": "https://online.petrolplus.ru","name": "ППР1"},
-  {"token": "DSVnRyymaLfmzHFubmNUkliRDVwkioDl","baseURL": "https://online.petrolplus.ru","name": "ППР2"}],
-"ИП Денисов": [{"login": "Sergey29","password": "M3Y9M1nV3wn1","contract code": "ISS062681","baseURL": "https://lkapi.rn-card.ru","name": "Роснефть1"}],
-"АТЛ": [{"login": "atlreg","password": "Atlreg2022","contract code": "ISS178520","baseURL": "https://lkapi.rn-card.ru","name": "Роснефть1"},
-  {"login": "AVENATOVSKIY@ATL.BIZ","password": "21m03kla","baseURL": "http://lk.tatneft.ru/solar-portal/api/","name": "Татнефть1"},
-  {"token": "74gbmqhv8w816vm96982m5mnoq1fxod9uvuofjxwvpcrpn68o5","baseURL": "http://194.58.104.213/lk","contract code": "DT17100278","name": "Газпром1"},
-  {"mail": "noleinayk@atl.biz","folder": "ATL_Novatec","name": "Новатэк1"}]}
+{"А_Лайн": [{"token": "RhHHSdeVfHMUCvwObydvoPCEYsAoWxho","baseURL": "https://online.petrolplus.ru","name": "ППР"},
+  {"token": "DSVnRyymaLfmzHFubmNUkliRDVwkioDl","baseURL": "https://online.petrolplus.ru","name": "ППР_2"}],
+"ИП Денисов": [{"login": "Sergey29","password": "M3Y9M1nV3wn1","contract code": "ISS062681","baseURL": "https://lkapi.rn-card.ru","name": "Роснефть"}],
+"АТЛ": [{"login": "atlreg","password": "Atlreg2022","contract code": "ISS178520","baseURL": "https://lkapi.rn-card.ru","name": "Роснефть"},
+  {"login": "AVENATOVSKIY@ATL.BIZ","password": "21m03kla","baseURL": "http://lk.tatneft.ru/solar-portal/api/","name": "Татнефть"},
+  {"token": "74gbmqhv8w816vm96982m5mnoq1fxod9uvuofjxwvpcrpn68o5","baseURL": "http://194.58.104.213/lk","contract code": "DT17100278","name": "Газпром"},
+  {"mail": "noleinayk@atl.biz","folder": "ATL_Novatec","name": "Новатэк"}]}
