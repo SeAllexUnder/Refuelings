@@ -691,6 +691,8 @@ class WialonClient:
         :param info: информация по транзакциям
         :return: None
         """
+        if not register:
+            return None
         pos = -1
         print(' ')
         # print(info)
@@ -1021,23 +1023,21 @@ def main(dateFrom = '', dateTo = ''):
             database_name = f'{organisation.replace(" ", "_")}_{cabinet["name"].replace(" ", "_")}'
             sql.create_table(name=database_name)
             last_row = sql.read_max_val_in_column(table=database_name, column='dates')
-            if last_row != 0:
-                dateFrom = datetime.utcfromtimestamp(last_row).strftime("%Y-%m-%d")
             date_From = dateFrom
             date_To = dateTo
+            if last_row != 0:
+                date_From = datetime.utcfromtimestamp(last_row).strftime("%Y-%m-%d")
             print(f'Личный кабинет {parameters[organisation].index(cabinet) + 1}: '
                   f'{cabinet["name"]}')
-            if cabinet["name"] == "ППР":
-                # continue
+            if "ППР" in cabinet["name"]:
                 fuel_cards_client = FuelCards_Client_PPR(token=cabinet['token'],
                                                          baseURL=cabinet['baseURL'])
-            elif cabinet["name"] == "Роснефть":
-                # continue
+            elif "Роснефть" in cabinet["name"]:
                 fuel_cards_client = FuelCards_Client_Rosneft(login=cabinet['login'],
                                                              password=cabinet['password'],
                                                              contract_code=cabinet['contract code'],
                                                              baseURL=cabinet['baseURL'])
-            elif cabinet["name"] == "Татнефть":
+            elif "Татнефть" in cabinet["name"]:
                 current_day = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d")
                 current_hour = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%H")
                 date_To = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
@@ -1057,11 +1057,11 @@ def main(dateFrom = '', dateTo = ''):
                     print(f'{cabinet["name"]} обновляется 1 числа каждого месяца')
                     continue
                 # continue
-            elif cabinet["name"] == "Газпром":
+            elif "Газпром" in cabinet["name"]:
                 fuel_cards_client = FuelCards_Client_Gazprom(token=cabinet['token'],
                                                              contract_code=cabinet['contract code'],
                                                              baseURL=cabinet['baseURL'])
-            elif cabinet["name"] == "Новатэк":
+            elif "Новатэк" in cabinet["name"]:
                 fuel_cards_client = FuelCards_Client_Novatec(mail_from=cabinet['mail'], folder=cabinet['folder'])
                 if fuel_cards_client.date_From != '' and fuel_cards_client.date_To != '':
                     date_From = fuel_cards_client.date_From
@@ -1118,7 +1118,6 @@ def main(dateFrom = '', dateTo = ''):
                                      for tr in transactions]
                 print(f'Транзакций по картам: {len(all_info["cardNum"])}')
                 if wialon.login():
-                    # print(all_info)
                     wialon.event_registration(all_info, True)
                 else:
                     print('Ошибка входа в Виалон!')
@@ -1151,8 +1150,8 @@ while True:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if test:
-            dateFrom = '2023-02-01'
-            dateTo = '2023-02-02'
+            dateFrom = '2023-01-01'
+            dateTo = '2023-02-03'
         main(dateFrom, dateTo)
         if test:
             break
