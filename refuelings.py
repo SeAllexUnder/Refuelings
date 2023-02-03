@@ -13,6 +13,8 @@ import email
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.header import decode_header
+from postgreSQL import PG_SQL
+import config_SQL as config
 import get_logo
 
 
@@ -739,12 +741,12 @@ class WialonClient:
                             f'Событие '
                             f'{datetime.utcfromtimestamp(info["dates"][pos] + 10800).strftime("%d.%m.%Y %H:%M")} '
                             f'объемом {info["amounts"][pos]} л было зарегистрировано ранее!')
-                    else:
-                        self.delete_transaction(vehicle_id, info['dates'][pos])
-                        print(f'Событие '
-                              f'{datetime.utcfromtimestamp(info["dates"][pos] + 10800).strftime("%d.%m.%Y %H:%M")} '
-                              f'перерегистрировано из-за разницы объемов.'
-                              f'Было: {float(value)} - Стало: {float(info["amounts"][pos])}')
+                    # else:
+                    #     self.delete_transaction(vehicle_id, info['dates'][pos])
+                    #     print(f'Событие '
+                    #           f'{datetime.utcfromtimestamp(info["dates"][pos] + 10800).strftime("%d.%m.%Y %H:%M")} '
+                    #           f'перерегистрировано из-за разницы объемов.'
+                    #           f'Было: {float(value)} - Стало: {float(info["amounts"][pos])}')
             if register and not_registered and vehicle_id is not None:
                 self.get_responce(URL)
                 print(f'Событие '
@@ -1004,18 +1006,23 @@ def sort_dict(dictionary, key):
     return new_dict
 
 
-def main(dateFrom, dateTo):
+def main(dateFrom = '', dateTo = ''):
     # Создание объектов для подключения к л.к. топливных карт и виалону по апи
     with open('Параметры API.json', encoding='utf-8') as p:
         parameters = json.load(p)
     for organisation in parameters.keys():
-        # if organisation != 'АТЛ':
+        # if organisation != 'ИП Денисов':
         #     continue
         print('------------------------------')
         print(f'Организация: {organisation}')
         for cabinet in parameters[organisation]:
-            if cabinet['name'] != 'Новатэк':
-                continue
+            # if cabinet['name'] != 'Роснефть':
+            #     continue
+            database_name = f'{organisation.replace(" ", "_")}_{cabinet["name"].replace(" ", "_")}'
+            sql.create_table(name=database_name)
+            last_row = sql.read_max_val_in_column(table=database_name, column='dates')
+            if last_row != 0:
+                dateFrom = datetime.utcfromtimestamp(last_row).strftime("%Y-%m-%d")
             date_From = dateFrom
             date_To = dateTo
             print(f'Личный кабинет {parameters[organisation].index(cabinet) + 1}: '
@@ -1092,13 +1099,10 @@ def main(dateFrom, dateTo):
                                    }
                 # print(transactions)
                 for transaction in transactions:
-                    transaction_date = fuel_cards_client.get_region_timezone(
-                        unix_date=clear_date(transaction['date']), adress=transaction['posAddress'])
-                    transaction['date'] = transaction_date
                     if transaction['cardNum'] != 0:
                         all_info['cardNum'].append(transaction['cardNum'])
                         all_info['drivers'].append(cards[transaction['cardNum']])
-                        all_info['dates'].append(transaction['date'])
+                        all_info['dates'].append(clear_date(transaction['date']))
                         all_info['amounts'].append('%.2f' % transaction['amount'])
                         all_info['prices'].append('%.2f' % transaction['price'])
                         all_info['sums'].append('%.2f' % transaction['sum'])
@@ -1107,7 +1111,11 @@ def main(dateFrom, dateTo):
                         all_info['longitude'].append(transaction['longitude'])
                         all_info['posAddress'].append(transaction['posAddress'])
                         all_info['serviceName'].append(transaction['serviceName'])
-                # print(all_info)
+                sql.append_unique_rows(table=database_name, _data=all_info)
+                all_info['dates'].clear()
+                all_info['dates'] = [fuel_cards_client.get_region_timezone(unix_date=clear_date(tr['date']),
+                                                                           adress=tr['posAddress'])
+                                     for tr in transactions]
                 print(f'Транзакций по картам: {len(all_info["cardNum"])}')
                 if wialon.login():
                     # print(all_info)
@@ -1131,19 +1139,20 @@ def main(dateFrom, dateTo):
 
 
 current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")
+sql = PG_SQL(dbname=config.db_name, user=config.user, host=config.host, password=config.password)
 print(f'{current_time} старт программы')
 while True:
     current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%M")
     dateFrom = datetime.utcfromtimestamp(int(time.time()) + 10800 - 86400).strftime("%Y-%m-%d")
     dateTo = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
-    test = True
+    test = False
     # or str(current_time) == '29:59'
     if str(current_time) == '59' or str(current_time) == '29' or test:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if test:
-            dateFrom = '2023-01-24'
-            dateTo = '2023-01-30'
+            dateFrom = '2023-02-01'
+            dateTo = '2023-02-02'
         main(dateFrom, dateTo)
         if test:
             break
