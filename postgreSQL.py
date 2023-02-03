@@ -75,7 +75,7 @@ class PG_SQL:
                 cursor.execute(f'SELECT {param} FROM {table}')
                 all_rows = cursor.fetchall()
             except Exception as _ex_append_rows:
-                print('Занесение строк - ', _ex_append_rows)
+                print('Чтение строк - ', _ex_append_rows)
         self._disconnect()
         return all_rows
 
@@ -125,7 +125,7 @@ class PG_SQL:
                 cursor.execute(f'SELECT {column} FROM {table} ORDER BY {column} DESC')
                 row = cursor.fetchone()
             except Exception as _ex:
-                print('Занесение строк - ', _ex)
+                print('Чтение строк - ', _ex)
         self._disconnect()
         try:
             return row[0]
@@ -140,7 +140,7 @@ class PG_SQL:
                 cursor.execute(command)
                 unique_rows = cursor.fetchall()
             except Exception as _ex:
-                print('Занесение строк - ', _ex)
+                print('Объединение таблиц - ', _ex)
         self._disconnect()
         self.clear_table(table)
         self.append_rows(table, unique_rows)
