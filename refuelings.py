@@ -833,50 +833,48 @@ class WialonClient:
             print(f'Топливная карта {card} зарегистрирована на нескольких ТС!')
 
     def reg_card(self, cards, name):
-        current_hour = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%H")
-        if current_hour == '09':
-            for card in cards.keys():
-                if cards[card] != '':
-                    veh_number = cards[card]
-                    # print(veh_number)
-                    """
-                    :param veh_number: номер ТС
-                    :return: инфо об объекте
-                    """
-                    params = {'spec': {'itemsType': 'avl_unit',
-                                       'propName': 'sys_name',
-                                       'propValueMask': f'*{veh_number}*',
-                                       'sortType': 'sys_unique_id',
-                                       'propType': 'property',
-                                       },
-                              'force': 1,
-                              'flags': 9,
-                              'from': 0,
-                              'to': 0,
-                              }
-                    svc = 'core/search_items'
-                    URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
-                    responce = self.get_responce(URL)
-                    # print(responce)
-                    if len(responce['items']) == 1:
-                        veh_id = responce['items'][0]['id']
-                        fields = {}
-                        for item in responce['items'][0]['flds'].keys():
-                            fields[responce['items'][0]['flds'][item]['v']] = responce['items'][0]['flds'][item]['id']
-                        if card not in fields.keys():
-                            self.append_field(veh_id=veh_id, card=card, name=name)
-                            print(f'Карта {veh_number} - {card} зарегистрирована!')
-                        for field in fields:
-                            # print(field)
-                            # print(fields)
-                            field_id = fields[field]
-                            for card in cards.keys():
-                                if field == card and veh_number != cards[card]:
-                                    print(f'{field} - ошибка занесения! Текущий г.н. - {veh_number}, правильный - {cards[card]}.')
-                                    self.delete_field(veh_id=veh_id, field_id=field_id)
-                                    print('Карта удалена.')
-                    else:
-                        print(f'{veh_number} не найден!')
+        for card in cards.keys():
+            if cards[card] != '':
+                veh_number = cards[card]
+                # print(veh_number)
+                """
+                :param veh_number: номер ТС
+                :return: инфо об объекте
+                """
+                params = {'spec': {'itemsType': 'avl_unit',
+                                   'propName': 'sys_name',
+                                   'propValueMask': f'*{veh_number}*',
+                                   'sortType': 'sys_unique_id',
+                                   'propType': 'property',
+                                   },
+                          'force': 1,
+                          'flags': 9,
+                          'from': 0,
+                          'to': 0,
+                          }
+                svc = 'core/search_items'
+                URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
+                responce = self.get_responce(URL)
+                # print(responce)
+                if len(responce['items']) == 1:
+                    veh_id = responce['items'][0]['id']
+                    fields = {}
+                    for item in responce['items'][0]['flds'].keys():
+                        fields[responce['items'][0]['flds'][item]['v']] = responce['items'][0]['flds'][item]['id']
+                    if card not in fields.keys():
+                        self.append_field(veh_id=veh_id, card=card, name=name)
+                        print(f'Карта {veh_number} - {card} зарегистрирована!')
+                    for field in fields:
+                        # print(field)
+                        # print(fields)
+                        field_id = fields[field]
+                        for card in cards.keys():
+                            if field == card and veh_number != cards[card]:
+                                print(f'{field} - ошибка занесения! Текущий г.н. - {veh_number}, правильный - {cards[card]}.')
+                                self.delete_field(veh_id=veh_id, field_id=field_id)
+                                print('Карта удалена.')
+                else:
+                    print(f'{veh_number} не найден!')
 
     def append_field(self, veh_id, card, name):
         params = {'itemId': veh_id,
@@ -1120,7 +1118,7 @@ def main(dateFrom = '', dateTo = ''):
                 for_database = all_info
                 for_database['fuel_card_type'] = [cabinet['fuel_card_type'] for _ in range(len(all_info['dates']))]
                 for_database['client_id'] = [cabinet['client_id'] for _ in range(len(all_info['dates']))]
-                sql.append_rows_test(table='refuelings', rows=for_database, schema='refuelings')
+                sql.append_rows(table='refuelings', rows=for_database, schema='refuelings')
                 all_info['dates'].clear()
                 all_info['dates'] = [fuel_cards_client.get_region_timezone(unix_date=clear_date(tr['date']),
                                                                            adress=tr['posAddress'])
