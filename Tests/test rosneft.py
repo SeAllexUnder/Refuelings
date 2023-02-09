@@ -222,6 +222,23 @@ class WialonClient:
             else:
                 print(f'Топливная карта {card} зарегистрирована на нескольких ТС!')
 
+    def vehicle_search_on_field(self, field):
+        params = {'spec': {'itemsType': 'avl_unit',
+                           'propName': 'rel_customfield_value',
+                           'propValueMask': field,
+                           'sortType': 'sys_unique_id',
+                           'propType': 'property',
+                           },
+                  'force': 1,
+                  'flags': 4611686018427387903,
+                  'from': 0,
+                  'to': 0,
+                  }
+        svc = 'core/search_items'
+        URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
+        responce = self.get_responce(URL)
+        return responce['items']
+
     def vehicle_search_on_group(self, group_mask):
         params = {'spec': {'itemsType': 'avl_unit_group',
                            'propName': 'sys_name',
@@ -248,11 +265,64 @@ class WialonClient:
         for vechicle_id in units:
             self.delete_transaction(vechicle_id)
 
-    def append_field(self, veh_id, card):
+    def reg_card(self, cards, name):
+        for card in cards.keys():
+            if cards[card] != '':
+                veh_number = cards[card]
+                # print(veh_number)
+                """
+                :param veh_number: номер ТС
+                :return: инфо об объекте
+                """
+                params = {'spec': {'itemsType': 'avl_unit',
+                                   'propName': 'sys_name',
+                                   'propValueMask': f'*{veh_number}*',
+                                   'sortType': 'sys_unique_id',
+                                   'propType': 'property',
+                                   },
+                          'force': 1,
+                          'flags': 9,
+                          'from': 0,
+                          'to': 0,
+                          }
+                svc = 'core/search_items'
+                URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
+                responce = self.get_responce(URL)
+                # print(responce)
+                if len(responce['items']) == 1:
+                    veh_id = responce['items'][0]['id']
+                    fields = {}
+                    for item in responce['items'][0]['flds'].keys():
+                        fields[responce['items'][0]['flds'][item]['v']] = responce['items'][0]['flds'][item]['id']
+                    if card not in fields.keys():
+                        self.append_field(veh_id=veh_id, card=card, name=name)
+                        print(f'Карта {veh_number} - {card} зарегистрирована!')
+                    for field in fields:
+                        # print(field)
+                        # print(fields)
+                        field_id = fields[field]
+                        for card in cards.keys():
+                            if field == card and veh_number != cards[card]:
+                                print(f'{field} - ошибка занесения! Текущий г.н. - {veh_number}, правильный - {cards[card]}.')
+                                self.delete_field(veh_id=veh_id, field_id=field_id)
+                                print('Карта удалена.')
+                    for card in cards.keys():
+                        dublicates = self.vehicle_search_on_field(card)
+                        if len(dublicates) > 1:
+                            for dublicate in dublicates:
+                                if veh_number not in dublicate['nm']:
+                                    for field in dublicate['flds'].values():
+                                        if field['n'] == name:
+                                            self.delete_field(dublicate['id'], field['id'])
+                                            print('Дубликат удален!')
+                else:
+                    print(f'{veh_number} не найден!')
+
+    def append_field(self, veh_id, card, name):
         params = {'itemId': veh_id,
                   'id': 0,
                   'callMode': 'create',
-                  'n': 'Роснефть',
+                  'n': name,
                   'v': card}
         svc = 'item/update_custom_field'
         URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
@@ -338,6 +408,10 @@ def clear_date(date):
     return unix_date_time
 
 
+wialon = WialonClient(0, 0)
+wialon.login()
+wialon.reg_card({'7826010118796248': 'В184КР797'}, 'Роснефть')
+wialon.logout()
 # print(clear_date('2022-12-06T07:03:22'))
 # print(clear_date('1670338920'))
 # get_cards_on_wialon()

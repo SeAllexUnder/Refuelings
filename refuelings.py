@@ -468,7 +468,7 @@ class FuelCards_Client_Tatneft(FuelCards_Client):
         return correct_unix_date
 
 
-class FuelCards_Client_Gazprom(FuelCards_Client):
+class FuelCards_Client_Gazprom_Dalko(FuelCards_Client):
     contract_code = ''
 
     def __init__(self, token, contract_code='',baseURL=''):
@@ -834,8 +834,8 @@ class WialonClient:
 
     def reg_card(self, cards, name):
         for card in cards.keys():
+            veh_number = cards[card]
             if cards[card] != '':
-                veh_number = cards[card]
                 # print(veh_number)
                 """
                 :param veh_number: номер ТС
@@ -875,6 +875,32 @@ class WialonClient:
                                 print('Карта удалена.')
                 else:
                     print(f'{veh_number} не найден!')
+            dublicates = self.vehicle_search_on_field(card)
+            if len(dublicates) > 1:
+                print(f'Дубликатов карты {card}: {len(dublicates)}')
+                for dublicate in dublicates:
+                    if veh_number not in dublicate['nm']:
+                        for field in dublicate['flds'].values():
+                            if field['n'] == name:
+                                self.delete_field(dublicate['id'], field['id'])
+                                print('Дубликат удален!')
+
+    def vehicle_search_on_field(self, field):
+        params = {'spec': {'itemsType': 'avl_unit',
+                           'propName': 'rel_customfield_value',
+                           'propValueMask': field,
+                           'sortType': 'sys_unique_id',
+                           'propType': 'property',
+                           },
+                  'force': 1,
+                  'flags': 4611686018427387903,
+                  'from': 0,
+                  'to': 0,
+                  }
+        svc = 'core/search_items'
+        URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
+        responce = self.get_responce(URL)
+        return responce['items']
 
     def append_field(self, veh_id, card, name):
         params = {'itemId': veh_id,
@@ -1061,10 +1087,10 @@ def main(dateFrom = '', dateTo = ''):
                     print(f'{cabinet["name"]} обновляется 1 числа каждого месяца')
                     continue
                 # continue
-            elif "Газпром" in cabinet["name"]:
-                fuel_cards_client = FuelCards_Client_Gazprom(token=cabinet['token'],
-                                                             contract_code=cabinet['contract_code'],
-                                                             baseURL=cabinet['baseurl'])
+            elif "Газпром Далко" in cabinet["name"]:
+                fuel_cards_client = FuelCards_Client_Gazprom_Dalko(token=cabinet['token'],
+                                                                   contract_code=cabinet['contract_code'],
+                                                                   baseURL=cabinet['baseurl'])
             elif "Новатэк" in cabinet["name"]:
                 fuel_cards_client = FuelCards_Client_Novatec(mail_from=cabinet['mail'], folder=cabinet['folder'])
                 if fuel_cards_client.date_From != '' and fuel_cards_client.date_To != '':
