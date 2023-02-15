@@ -15,7 +15,6 @@ from email.mime.text import MIMEText
 from email.header import decode_header
 from postgreSQL import PG_SQL
 import config_SQL as config
-import get_logo
 
 
 class FuelCards_Client:
@@ -1087,7 +1086,7 @@ def main(dateFrom = '', dateTo = ''):
                     print(f'{cabinet["name"]} обновляется 1 числа каждого месяца')
                     continue
                 # continue
-            elif "Газпром Далко" in cabinet["name"]:
+            elif "Газпром Дэлко" in cabinet["name"]:
                 fuel_cards_client = FuelCards_Client_Gazprom_Dalko(token=cabinet['token'],
                                                                    contract_code=cabinet['contract_code'],
                                                                    baseURL=cabinet['baseurl'])
@@ -1177,13 +1176,14 @@ while True:
     dateTo = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
     test = False
     # or str(current_time) == '29:59'
-    if str(current_time) == '59' or str(current_time) == '29' or test:
+    if str(current_time) == '59' or str(current_time) == '10' or test:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if test:
             dateFrom = '2023-01-01'
             dateTo = '2023-02-06'
         main(dateFrom, dateTo)
+        print('V 1.0')
         if test:
             break
     else:
