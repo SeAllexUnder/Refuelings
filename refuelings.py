@@ -867,9 +867,9 @@ class WialonClient:
                         # print(field)
                         # print(fields)
                         field_id = fields[field]
-                        for card in cards.keys():
-                            if field == card and veh_number != cards[card]:
-                                print(f'{field} - ошибка занесения! Текущий г.н. - {veh_number}, правильный - {cards[card]}.')
+                        for c in cards.keys():
+                            if field == c and veh_number != cards[c]:
+                                print(f'{field} - ошибка занесения! Текущий г.н. - {veh_number}, правильный - {cards[c]}.')
                                 self.delete_field(veh_id=veh_id, field_id=field_id)
                                 print('Карта удалена.')
                 else:
@@ -880,14 +880,14 @@ class WialonClient:
                 for dublicate in dublicates:
                     if veh_number not in dublicate['nm']:
                         for field in dublicate['flds'].values():
-                            if field['n'] == name:
+                            if field['v'] == str(card):
                                 self.delete_field(dublicate['id'], field['id'])
                                 print('Дубликат удален!')
 
     def vehicle_search_on_field(self, field):
         params = {'spec': {'itemsType': 'avl_unit',
                            'propName': 'rel_customfield_value',
-                           'propValueMask': field,
+                           'propValueMask': f'*{field}*',
                            'sortType': 'sys_unique_id',
                            'propType': 'property',
                            },
@@ -1048,7 +1048,7 @@ def main(dateFrom = '', dateTo = ''):
             for col in col_s:
                 cabinet[col] = c[i]
                 i += 1
-            # if cabinet['name'] != 'Роснефть':
+            # if cabinet['name'] != 'Газпром Дэлко':
             #     continue
             last_row = sql.read_max_val_in_column(table='refuelings', column='dates', schema='refuelings',
                                                   filters={'client_id': cabinet['client_id'],
@@ -1180,7 +1180,7 @@ while True:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if test:
-            dateFrom = '2023-01-01'
+            dateFrom = '2023-01-31'
             dateTo = '2023-02-06'
         main(dateFrom, dateTo)
         print('V 1.0')
