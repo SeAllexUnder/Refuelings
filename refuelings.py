@@ -1176,7 +1176,7 @@ while True:
     dateTo = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
     test = False
     # or str(current_time) == '29:59'
-    if str(current_time) == '59' or str(current_time) == '10' or test:
+    if str(current_time) == '59' or str(current_time) == '29' or test:
         print(
             f'{datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")} - считываю данные...')
         if test:
