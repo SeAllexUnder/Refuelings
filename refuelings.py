@@ -196,7 +196,7 @@ class FuelCards_Client_PPR(FuelCards_Client):
                 else:
                     print(f'{self.baseURL} - ошибка подключения! Попытка повторного запроса через 60 сек...')
                     time.sleep(60)
-            except requests.exceptions.ConnectTimeout:
+            except (requests.exceptions.ConnectTimeout, ConnectionError):
                 print(f'{self.baseURL} - превышено время ожидания ответа! Попытка повторного запроса через 60 сек...')
                 time.sleep(60)
 
@@ -899,6 +899,10 @@ class WialonClient:
         svc = 'core/search_items'
         URL = f'{self.URL}/wialon/ajax.html?svc={svc}&params={json.dumps(params)}&sid={self.EID}'
         responce = self.get_responce(URL)
+        try:
+            responce['items']
+        except KeyError:
+            responce = self.get_responce(URL)
         return responce['items']
 
     def append_field(self, veh_id, card, name):
@@ -1042,126 +1046,132 @@ def main(dateFrom = '', dateTo = ''):
         print(f'Организация: {organisation}')
         cabinets = sql.read_rows(table='fuel_cards_types', schema='refuelings', filters={'client_id': organisation_id})
         for c in cabinets:
-            col_s = ['fuel_card_type', 'name', 'login', 'password', 'token', 'baseurl', 'contract_code', 'mail', 'folder', 'client_id']
-            cabinet = {}
-            i = 0
-            for col in col_s:
-                cabinet[col] = c[i]
-                i += 1
-            # if cabinet['name'] != 'Газпром Дэлко':
-            #     continue
-            last_row = sql.read_max_val_in_column(table='refuelings', column='dates', schema='refuelings',
-                                                  filters={'client_id': cabinet['client_id'],
-                                                           'fuel_card_type': cabinet['fuel_card_type']})
-            date_From = dateFrom
-            date_To = dateTo
-            if last_row != 0:
-                date_From = datetime.utcfromtimestamp(last_row).strftime("%Y-%m-%d")
-            print(f'Личный кабинет: {cabinet["name"]}')
-            if "ППР" in cabinet["name"]:
-                fuel_cards_client = FuelCards_Client_PPR(token=cabinet['token'],
-                                                         baseURL=cabinet['baseurl'])
-            elif "Роснефть" in cabinet["name"]:
-                fuel_cards_client = FuelCards_Client_Rosneft(login=cabinet['login'],
-                                                             password=cabinet['password'],
-                                                             contract_code=cabinet['contract_code'],
-                                                             baseURL=cabinet['baseurl'])
-            elif "Татнефть" in cabinet["name"]:
-                current_day = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d")
-                current_hour = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%H")
-                date_To = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
-                date_From = datetime.utcfromtimestamp(int(time.time()) + 10800 - 2851200).strftime("%Y-%m-%d")
-                # date_From = '2022-11-01'
-                # date_To = '2022-12-21'
-                kostyl = False
-                if current_day == '01' and current_hour == '09' or kostyl:
-                    if kostyl:
-                        date_From = '2023-01-01'
-                    fuel_cards_client = FuelCards_Client_Tatneft(login=cabinet['login'],
-                                                                 password=cabinet['password'],
-                                                                 baseURL=cabinet['baseurl'],
-                                                                 dateFrom=date_From,
-                                                                 dateTo=date_To)
-                else:
-                    print(f'{cabinet["name"]} обновляется 1 числа каждого месяца')
-                    continue
-                # continue
-            elif "Газпром Дэлко" in cabinet["name"]:
-                fuel_cards_client = FuelCards_Client_Gazprom_Dalko(token=cabinet['token'],
-                                                                   contract_code=cabinet['contract_code'],
-                                                                   baseURL=cabinet['baseurl'])
-            elif "Новатэк" in cabinet["name"]:
-                fuel_cards_client = FuelCards_Client_Novatec(mail_from=cabinet['mail'], folder=cabinet['folder'])
-                if fuel_cards_client.date_From != '' and fuel_cards_client.date_To != '':
-                    date_From = fuel_cards_client.date_From
-                    date_To = fuel_cards_client.date_To
-            else:
-                print(f'API {cabinet["name"]} пока не реализовано')
-                continue
-            print(f'Период с {date_From} по {date_To}')
-            wialon = WialonClient(dateFrom=date_From, dateTo=date_To)
-            # получение карт и транзакций
             try:
-                cards = fuel_cards_client.get_cards()
-                transactions = fuel_cards_client.get_transactions(date_From, date_To)
-                print(f'Найдено транзакций за период : {len(transactions)}')
-            except TimeoutError:
-                print(f'Личный кабинет {cabinet["baseURL"]} - ошибка TimeoutError!')
-                continue
-            if wialon.login():
-                # print(all_info)
-                wialon.reg_card(cards, cabinet['name'])
-                wialon.logout()
-            if len(transactions) != 0:
-                # сбор информации
-                all_info = {'cardNum': [],
-                                   'drivers': [],
-                                   'dates': [],
-                                   'amounts': [],
-                                   'prices': [],
-                                   'sums': [],
-                                   'posBrands': [],
-                                   'latitude': [],
-                                   'longitude': [],
-                                   'posAddress': [],
-                                   'serviceName': []
-                                   }
-                for transaction in transactions:
-                    if transaction['cardNum'] != 0:
-                        all_info['cardNum'].append(transaction['cardNum'])
-                        all_info['drivers'].append(cards[transaction['cardNum']])
-                        all_info['dates'].append(clear_date(transaction['date']))
-                        all_info['amounts'].append('%.2f' % transaction['amount'])
-                        all_info['prices'].append('%.2f' % transaction['price'])
-                        all_info['sums'].append('%.2f' % transaction['sum'])
-                        all_info['posBrands'].append(f'{transaction["posBrand"]} {transaction["posTown"]}')
-                        all_info['latitude'].append(transaction['latitude'])
-                        all_info['longitude'].append(transaction['longitude'])
-                        all_info['posAddress'].append(transaction['posAddress'])
-                        all_info['serviceName'].append(transaction['serviceName'])
-                print(f'Транзакций по картам: {len(all_info["cardNum"])}')
-                for_database = all_info
-                for_database['fuel_card_type'] = [cabinet['fuel_card_type'] for _ in range(len(all_info['dates']))]
-                for_database['client_id'] = [cabinet['client_id'] for _ in range(len(all_info['dates']))]
-                sql.append_rows(table='refuelings', rows=for_database, schema='refuelings')
-                all_info['dates'].clear()
-                all_info['dates'] = [fuel_cards_client.get_region_timezone(unix_date=clear_date(tr['date']),
-                                                                           adress=tr['posAddress'])
-                                     for tr in transactions]
-                if wialon.login():
-                    wialon.event_registration(all_info, True)
+                col_s = ['fuel_card_type', 'name', 'login', 'password', 'token', 'baseurl', 'contract_code', 'mail', 'folder', 'client_id']
+                cabinet = {}
+                i = 0
+                for col in col_s:
+                    cabinet[col] = c[i]
+                    i += 1
+                # if cabinet['name'] != 'Газпром Дэлко':
+                #     continue
+                last_row = sql.read_max_val_in_column(table='refuelings', column='dates', schema='refuelings',
+                                                      filters={'client_id': cabinet['client_id'],
+                                                               'fuel_card_type': cabinet['fuel_card_type']})
+                date_From = dateFrom
+                date_To = dateTo
+                if last_row != 0:
+                    date_From = datetime.utcfromtimestamp(last_row).strftime("%Y-%m-%d")
+                print(f'Личный кабинет: {cabinet["name"]}')
+                if "ППР" in cabinet["name"]:
+                    fuel_cards_client = FuelCards_Client_PPR(token=cabinet['token'],
+                                                             baseURL=cabinet['baseurl'])
+                elif "Роснефть" in cabinet["name"]:
+                    fuel_cards_client = FuelCards_Client_Rosneft(login=cabinet['login'],
+                                                                 password=cabinet['password'],
+                                                                 contract_code=cabinet['contract_code'],
+                                                                 baseURL=cabinet['baseurl'])
+                elif "Татнефть" in cabinet["name"]:
+                    current_day = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d")
+                    current_hour = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%H")
+                    date_To = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%Y-%m-%d")
+                    date_From = datetime.utcfromtimestamp(int(time.time()) + 10800 - 2851200).strftime("%Y-%m-%d")
+                    # date_From = '2022-11-01'
+                    # date_To = '2022-12-21'
+                    kostyl = False
+                    if current_day == '01' and current_hour == '09' or kostyl:
+                        if kostyl:
+                            date_From = '2023-01-01'
+                        fuel_cards_client = FuelCards_Client_Tatneft(login=cabinet['login'],
+                                                                     password=cabinet['password'],
+                                                                     baseURL=cabinet['baseurl'],
+                                                                     dateFrom=date_From,
+                                                                     dateTo=date_To)
+                    else:
+                        print(f'{cabinet["name"]} обновляется 1 числа каждого месяца')
+                        continue
+                    # continue
+                elif "Газпром Дэлко" in cabinet["name"]:
+                    fuel_cards_client = FuelCards_Client_Gazprom_Dalko(token=cabinet['token'],
+                                                                       contract_code=cabinet['contract_code'],
+                                                                       baseURL=cabinet['baseurl'])
+                elif "Новатэк" in cabinet["name"]:
+                    fuel_cards_client = FuelCards_Client_Novatec(mail_from=cabinet['mail'], folder=cabinet['folder'])
+                    if fuel_cards_client.date_From != '' and fuel_cards_client.date_To != '':
+                        date_From = fuel_cards_client.date_From
+                        date_To = fuel_cards_client.date_To
                 else:
-                    print('Ошибка входа в Виалон!')
-                text_for_report = f'Обработка данных завершена. Интегрировано транзакций: ' \
-                                      f'{len(all_info["cardNum"])} за период с {date_From} по {date_To}'
-                fuel_cards_client.send_report(text_for_report)
-                wialon.logout()
-                all_info.clear()
-            cards.clear()
-            transactions.clear()
-            # del fuel_cards_client.mail_ru
-            del fuel_cards_client
-            del wialon
+                    print(f'API {cabinet["name"]} пока не реализовано')
+                    continue
+                print(f'Период с {date_From} по {date_To}')
+                wialon = WialonClient(dateFrom=date_From, dateTo=date_To)
+                # получение карт и транзакций
+                try:
+                    cards = fuel_cards_client.get_cards()
+                    transactions = fuel_cards_client.get_transactions(date_From, date_To)
+                    print(f'Найдено транзакций за период : {len(transactions)}')
+                except TimeoutError:
+                    print(f'Личный кабинет {cabinet["baseURL"]} - ошибка TimeoutError!')
+                    continue
+                if wialon.login():
+                    # print(all_info)
+                    wialon.reg_card(cards, cabinet['name'])
+                    wialon.logout()
+                if len(transactions) != 0:
+                    # сбор информации
+                    all_info = {'cardNum': [],
+                                       'drivers': [],
+                                       'dates': [],
+                                       'amounts': [],
+                                       'prices': [],
+                                       'sums': [],
+                                       'posBrands': [],
+                                       'latitude': [],
+                                       'longitude': [],
+                                       'posAddress': [],
+                                       'serviceName': []
+                                       }
+                    for transaction in transactions:
+                        if transaction['cardNum'] != 0:
+                            all_info['cardNum'].append(transaction['cardNum'])
+                            all_info['drivers'].append(cards[transaction['cardNum']])
+                            all_info['dates'].append(clear_date(transaction['date']))
+                            all_info['amounts'].append('%.2f' % transaction['amount'])
+                            all_info['prices'].append('%.2f' % transaction['price'])
+                            all_info['sums'].append('%.2f' % transaction['sum'])
+                            all_info['posBrands'].append(f'{transaction["posBrand"]} {transaction["posTown"]}')
+                            all_info['latitude'].append(transaction['latitude'])
+                            all_info['longitude'].append(transaction['longitude'])
+                            all_info['posAddress'].append(transaction['posAddress'])
+                            all_info['serviceName'].append(transaction['serviceName'])
+                    print(f'Транзакций по картам: {len(all_info["cardNum"])}')
+                    for_database = all_info
+                    for_database['fuel_card_type'] = [cabinet['fuel_card_type'] for _ in range(len(all_info['dates']))]
+                    for_database['client_id'] = [cabinet['client_id'] for _ in range(len(all_info['dates']))]
+                    sql.append_rows(table='refuelings', rows=for_database, schema='refuelings')
+                    all_info['dates'].clear()
+                    all_info['dates'] = [fuel_cards_client.get_region_timezone(unix_date=clear_date(tr['date']),
+                                                                               adress=tr['posAddress'])
+                                         for tr in transactions]
+                    if wialon.login():
+                        wialon.event_registration(all_info, True)
+                    else:
+                        print('Ошибка входа в Виалон!')
+                    text_for_report = f'Обработка данных завершена. Интегрировано транзакций: ' \
+                                          f'{len(all_info["cardNum"])} за период с {date_From} по {date_To}'
+                    fuel_cards_client.send_report(text_for_report)
+                    wialon.logout()
+                    all_info.clear()
+                cards.clear()
+                transactions.clear()
+                # del fuel_cards_client.mail_ru
+                del fuel_cards_client
+                del wialon
+            except Exception as _ex:
+                _ex_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")
+                with open('log.txt', 'a') as log:
+                    log.write(f"{_ex_time}: {_ex}\n")
+                continue
     current_time = datetime.utcfromtimestamp(int(time.time()) + 10800).strftime("%d.%m.%Y %H:%M:%S")
     print(f'{current_time} - готово.')
     print('===========================================================================================================')
