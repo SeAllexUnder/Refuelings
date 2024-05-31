@@ -125,33 +125,34 @@ class PG_SQL:
 
 
 if __name__ == '__main__':
-    data = {'cardNum': [7826010103047375],
-               'drivers': ['text'],
-               'dates': [1675306920],
-               'amounts': [137.88],
-               'prices': [1.1],
-               'sums': [1.1],
-               'posBrands': ['text'],
-               'latitude': [1.1],
-               'longitude': [1.1],
-               'posAddress': ['text'],
-               'serviceName': ['text']
-               }
-    data1 = {'cardNum': [1, 2],
-               'drivers': ['text', 'text2'],
-               'dates': [71,1004],
-               'amounts': [1.1, 1.2],
-               'prices': [1.1, 1.2],
-               'sums': [1.1, 1.2],
-               'posBrands': ['text', 'text2'],
-               'latitude': [1.1, 1.2],
-               'longitude': [1.1, 1.2],
-               'posAddress': ['text', 'text2'],
-               'serviceName': ['text', 'text2']
-            }
+    # data = {'cardNum': [7826010103047375],
+    #            'drivers': ['text'],
+    #            'dates': [1675306920],
+    #            'amounts': [137.88],
+    #            'prices': [1.1],
+    #            'sums': [1.1],
+    #            'posBrands': ['text'],
+    #            'latitude': [1.1],
+    #            'longitude': [1.1],
+    #            'posAddress': ['text'],
+    #            'serviceName': ['text']
+    #            }
+    # data1 = {'cardNum': [1, 2],
+    #            'drivers': ['text', 'text2'],
+    #            'dates': [71,1004],
+    #            'amounts': [1.1, 1.2],
+    #            'prices': [1.1, 1.2],
+    #            'sums': [1.1, 1.2],
+    #            'posBrands': ['text', 'text2'],
+    #            'latitude': [1.1, 1.2],
+    #            'longitude': [1.1, 1.2],
+    #            'posAddress': ['text', 'text2'],
+    #            'serviceName': ['text', 'text2']
+    #         }
     sql = PG_SQL(dbname=config.db_name, user=config.user, host=config.host, password=config.password)
-    test = {'cardNum': [1000888056, 1000870565], 'drivers': ['Коновалов Алексей Александрович', 'Филиппов Андрей Федорович'], 'dates': [1675508760, 1675433640], 'amounts': ['35.00', '40.00'], 'prices': ['50.37', '50.16'], 'sums': ['1762.83', '2006.35'], 'posBrands': ['Татнефть Великоустюгский р-н', 'Teboil Вологда'], 'latitude': [60.7587, 59.189953], 'longitude': [46.243, 39.854852], 'posAddress': ['Самотовинское с/п, п.Валга', 'Пошехонское ш., 38А, Вологда, Вологодская обл., Россия, 160022'], 'serviceName': ['АИ-92', 'АИ-92'], 'fuel_card_type': [13, 13], 'client_id': [1, 1]}
-    sql.append_rows(table='refuelings', rows=test, schema='refuelings')
+    print(sql.read_rows('refuelings.fuel_cards_types'))
+    # test = {'cardNum': [1000888056, 1000870565], 'drivers': ['Коновалов Алексей Александрович', 'Филиппов Андрей Федорович'], 'dates': [1675508760, 1675433640], 'amounts': ['35.00', '40.00'], 'prices': ['50.37', '50.16'], 'sums': ['1762.83', '2006.35'], 'posBrands': ['Татнефть Великоустюгский р-н', 'Teboil Вологда'], 'latitude': [60.7587, 59.189953], 'longitude': [46.243, 39.854852], 'posAddress': ['Самотовинское с/п, п.Валга', 'Пошехонское ш., 38А, Вологда, Вологодская обл., Россия, 160022'], 'serviceName': ['АИ-92', 'АИ-92'], 'fuel_card_type': [13, 13], 'client_id': [1, 1]}
+    # sql.append_rows(table='refuelings', rows=test, schema='refuelings')
     # sql.append_rows_test(table='clients', rows=['А_Лайн'], columns=['name'], schema='refuelings')
     # sql.append_rows_test(table='fuel_cards_types', rows=['ППР', 1], columns=['name', 'client_id'], schema='refuelings')
     # print(sql.read_max_val_in_column('АТЛ', 'dates', 'АТЛ'))
@@ -159,3 +160,4 @@ if __name__ == '__main__':
     # val = sql.read_max_val_in_column('АТЛ', 'dates')
     # print(val)
     # sql.create_schema('АТЛ')
+
